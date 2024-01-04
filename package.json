@@ -1,6 +1,6 @@
 {
   "name": "@wearesweet/sendbird-uikit-react",
-  "version": "3.9.2",
+  "version": "3.9.3",
   "description": "Fork of Sendbird UIKit for React to implement additional functionality for We Are Sweet projects",
   "keywords": [
     "sendbird",
