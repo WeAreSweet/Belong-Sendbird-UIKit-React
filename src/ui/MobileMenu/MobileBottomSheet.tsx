@@ -59,6 +59,8 @@ const MobileBottomSheet: React.FunctionComponent<MobileBottomSheetProps> = (prop
   const showMenuItemDeleteByState = isByMe && (deleteMenuState === undefined || deleteMenuState !== 'HIDE');
   const showMenuItemDeleteFinal = showMenuItemDeleteByState && showMenuItemDelete;
 
+  const showMenuItemReport: boolean = !isPendingMessage(message) && !isByMe;
+
   const disableDelete = (
     (deleteMenuState !== undefined && deleteMenuState === 'DISABLE')
     || (message?.threadInfo?.replyCount ?? 0) > 0
@@ -350,8 +352,34 @@ const MobileBottomSheet: React.FunctionComponent<MobileBottomSheetProps> = (prop
                   </div>
                 )
               }
+              {
+                showMenuItemReport && (
+                  <div
+                      className='sendbird-message__bottomsheet--action'
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent("sendbird.report", {
+                          detail: {
+                            channel_type: message.channelType,
+                            channel_url: message.channelUrl,
+                            message: message.messageId
+                          }
+                        }));
+                      }}
+                  >
+                    <Icon
+                        type={IconTypes.ERROR}
+                        fillColor={IconColors.PRIMARY}
+                        width="24px"
+                        height="24px"
+                    />
+                    <Label type={LabelTypography.SUBTITLE_1} color={LabelColors.ONBACKGROUND_1}>
+                      Report
+                    </Label>
+                  </div>
+                  )
+              }
             </div>
-          )
+            )
         }
       </div>
     </BottomSheet>
