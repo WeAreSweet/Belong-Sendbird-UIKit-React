@@ -364,6 +364,8 @@ const MobileBottomSheet: React.FunctionComponent<MobileBottomSheetProps> = (prop
                             message: message.messageId
                           }
                         }));
+
+                        hideMenu();
                       }}
                   >
                     <Icon
