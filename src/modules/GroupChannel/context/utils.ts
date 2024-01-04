@@ -2,6 +2,21 @@ import React from 'react';
 import type { GroupChannel } from '@sendbird/chat/groupChannel';
 import type { BaseMessage } from '@sendbird/chat/message';
 
+export function isContextMenuClosed() {
+  return (
+    document.getElementById('sendbird-dropdown-portal')?.childElementCount === 0 &&
+    document.getElementById('sendbird-emoji-list-portal')?.childElementCount === 0
+  );
+}
+
+export function getMessageTopOffset(messageCreatedAt: number): number | null {
+  const element = document.querySelectorAll(`[data-sb-created-at="${messageCreatedAt}"]`)?.[0];
+  if (element instanceof HTMLElement) {
+    return element.offsetTop;
+  }
+  return null;
+}
+
 export const scrollToRenderedMessage = (scrollRef: React.MutableRefObject<HTMLElement>, initialTimeStamp: number) => {
   const container = scrollRef.current;
   try {
@@ -9,10 +24,12 @@ export const scrollToRenderedMessage = (scrollRef: React.MutableRefObject<HTMLEl
     const element = container.querySelectorAll(`[data-sb-created-at="${initialTimeStamp}"]`)?.[0];
     if (element instanceof HTMLElement) {
       // Set the scroll position of the container to bring the element to the top
+      console.log('element offset', element.offsetTop);
       container.scrollTop = element.offsetTop;
     }
-  } catch {
+  } catch (err) {
     // noop
+    console.log('catch', err);
   }
 };
 

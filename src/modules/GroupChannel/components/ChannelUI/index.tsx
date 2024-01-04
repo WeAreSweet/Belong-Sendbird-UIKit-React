@@ -51,14 +51,14 @@ const ChannelUI: React.FC<ChannelUIProps> = ({
     return <div className="sendbird-conversation">{renderPlaceholderLoader?.() || <PlaceHolder type={PlaceHolderTypes.LOADING} />}</div>;
   }
 
-  if (!channelUrl) {
+  if (!channelUrl || !currentChannel) {
     return (
       <div className="sendbird-conversation">{renderPlaceholderInvalid?.() || <PlaceHolder type={PlaceHolderTypes.NO_CHANNELS} />}</div>
     );
   }
 
   // TODO: only show when getChannel fails with an error
-  if (channelUrl && !currentChannel) {
+  if (!loading && channelUrl && !currentChannel) {
     // && getCurrentChannelError
     return <div className="sendbird-conversation">{renderPlaceholderInvalid?.() || <PlaceHolder type={PlaceHolderTypes.WRONG} />}</div>;
   }

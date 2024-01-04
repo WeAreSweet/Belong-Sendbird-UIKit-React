@@ -102,7 +102,12 @@ const MessageList: React.FC<MessageListProps> = ({
     scrollToBottomButton() {
       // TODO: should we add `scrollDistanceFromBottomRef.current <= SCROLL_BOTTOM_PADDING` here?
       //  if so scrollDistanceFromBottom should be changed to state
-      if (hasNext() || isScrollBottomReached) return null;
+
+      let shouldVisible = false;
+      if (!isScrollBottomReached) shouldVisible = true;
+      if (hasNext()) shouldVisible = true;
+      if (!shouldVisible) return null;
+
       return (
         <div
           className="sendbird-conversation__scroll-bottom-button"
@@ -159,11 +164,11 @@ const MessageList: React.FC<MessageListProps> = ({
                 </MessageProvider>
               );
             })}
-            {!hasNext()
-              && store?.config?.groupChannel?.enableTypingIndicator
-              && store?.config?.groupChannel?.typingIndicatorTypes?.has(TypingIndicatorType.Bubble) && (
+            {!hasNext() &&
+              store?.config?.groupChannel?.enableTypingIndicator &&
+              store?.config?.groupChannel?.typingIndicatorTypes?.has(TypingIndicatorType.Bubble) && (
                 <TypingIndicatorBubbleWrapper handleScroll={onMessageContentSizeChanged} />
-            )}
+              )}
           </div>
         </div>
 

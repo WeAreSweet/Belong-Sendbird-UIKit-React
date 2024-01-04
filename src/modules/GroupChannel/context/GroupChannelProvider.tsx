@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import type { User } from '@sendbird/chat';
 import {
   BaseMessageCreateParams,
@@ -22,7 +22,7 @@ import { ThreadReplySelectType } from './const';
 import { RenderUserProfileProps, ReplyType } from '../../../types';
 import useToggleReactionCallback from './hooks/useToggleReactionCallback';
 import { getCaseResolvedReplyType, getCaseResolvedThreadReplySelectType } from '../../../lib/utils/resolvedReplyType';
-import { scrollToRenderedMessage } from './utils';
+import { getMessageTopOffset, isContextMenuClosed, scrollToRenderedMessage } from './utils';
 import {
   META_ARRAY_MESSAGE_TYPE_KEY,
   META_ARRAY_MESSAGE_TYPE_VALUE__VOICE,
@@ -31,6 +31,7 @@ import {
   VOICE_MESSAGE_MIME_TYPE,
 } from '../../../utils/consts';
 import { useOnScrollPositionChangeDetectorWithRef } from '../../../hooks/useOnScrollReachedEndDetector';
+import { useMessageListScroll } from './hooks/useMessageListScroll';
 
 type OnBeforeHandler<T> = (params: T) => T | Promise<T>;
 
@@ -177,18 +178,16 @@ const GroupChannelProvider = (props: GroupChannelContextProps) => {
   const [quoteMessage, setQuoteMessage] = useState<SendableMessageType>(null);
   const [animatedMessageId, setAnimatedMessageId] = useState(0);
   const [currentChannel, setCurrentChannel] = useState<GroupChannel | null>(null);
-  const [isScrollBottomReached, setIsScrollBottomReached] = useState(false);
 
   // Ref
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollDistanceFromBottomRef = useRef(0);
+  const { scrollRef, scrollPubSub, scrollDistanceFromBottomRef, isScrollBottomReached, setIsScrollBottomReached } = useMessageListScroll();
   const messageInputRef = useRef(null);
 
   const toggleReaction = useToggleReactionCallback(currentChannel, logger);
 
   const replyType = getCaseResolvedReplyType(moduleReplyType ?? config.groupChannel.replyType).upperCase;
   const threadReplySelectType = getCaseResolvedThreadReplySelectType(
-    moduleThreadReplySelectType ?? config.groupChannel.threadReplySelectType,
+    moduleThreadReplySelectType ?? config.groupChannel.threadReplySelectType
   ).upperCase;
   const chatReplyType = useIIFE(() => {
     if (replyType === 'NONE') return ChatReplyType.NONE;
@@ -201,12 +200,12 @@ const GroupChannelProvider = (props: GroupChannelContextProps) => {
 
   const nicknamesMap = useMemo(
     () => new Map((currentChannel?.members ?? []).map(({ userId, nickname }) => [userId, nickname])),
-    [currentChannel?.members],
+    [currentChannel?.members]
   );
 
   // Initialize current channel
   useAsyncEffect(async () => {
-    if (sdkStore.initialized) {
+    if (sdkStore.initialized && channelUrl) {
       try {
         const channel = await sdkStore.sdk.groupChannel.getChannel(channelUrl);
         setCurrentChannel(channel);
@@ -223,60 +222,86 @@ const GroupChannelProvider = (props: GroupChannelContextProps) => {
   const messageCollectionHook = useGroupChannelMessages(sdkStore.sdk, currentChannel, {
     replyType: chatReplyType,
     startingPoint,
+    shouldCountNewMessages: () => !isScrollBottomReached,
     markAsRead: (channels) => {
       if (!disableMarkAsRead && isScrollBottomReached) {
         channels.forEach((it) => markAsReadScheduler.push(it));
       }
     },
-    shouldCountNewMessages: () => !isScrollBottomReached,
     onMessagesReceived: () => {
       if (isScrollBottomReached && isContextMenuClosed()) {
-        scrollToBottom();
+        scrollPubSub.publish('scrollToBottom', null);
       }
     },
+    onChannelDeleted: () => setCurrentChannel(null),
+    onCurrentUserBanned: () => setCurrentChannel(null),
+    onChannelUpdated: (channel) => setCurrentChannel(channel),
     // collectionCreator?: (collectionParams?: DefaultCollectionParams) => MessageCollection;
-    // onMessagesUpdated?: (messages: SendbirdMessage[]) => void;
-    // onChannelDeleted?: (channelUrl: string) => void;
-    // onChannelUpdated?: (channel: GroupChannel) => void;
-    // onCurrentUserBanned?: () => void;
     logger,
   });
 
+  useLayoutEffect(() => {
+    if (messageCollectionHook.initialized) {
+      scrollPubSub.publish('scrollToBottom', null);
+    }
+  }, [messageCollectionHook.initialized]);
+
   useOnScrollPositionChangeDetectorWithRef(scrollRef, {
-    onReachedTop({ distanceFromBottom }) {
-      setIsScrollBottomReached(false);
-      scrollDistanceFromBottomRef.current = distanceFromBottom;
+    onReachedTop() {
+      if (messageCollectionHook.hasPrevious()) {
+        const prevViewInfo = {
+          scrollTop: scrollRef.current.scrollTop,
+          scrollHeight: scrollRef.current.scrollHeight,
+          clientHeight: scrollRef.current.clientHeight,
+        };
+        console.log('loadPrevious()', prevViewInfo);
+        messageCollectionHook.loadPrevious().then(() => {
+          setTimeout(() => {
+            const nextViewInfo = {
+              scrollTop: scrollRef.current.scrollTop,
+              scrollHeight: scrollRef.current.scrollHeight,
+              clientHeight: scrollRef.current.clientHeight,
+            };
+            console.log(
+              'loadPrevious done()',
+              nextViewInfo,
+              nextViewInfo.scrollHeight - (prevViewInfo.scrollHeight - prevViewInfo.scrollTop)
+            );
 
-      // TODO: maintain the view position.
-      const prevViewInfo = {
-        scrollTop: scrollRef.current.scrollTop,
-        scrollHeight: scrollRef.current.scrollHeight,
-        clientHeight: scrollRef.current.clientHeight,
-      };
-      messageCollectionHook.loadPrevious().then(() => {
-        setTimeout(() => {
-          const nextViewInfo = {
-            scrollTop: scrollRef.current.scrollTop,
-            scrollHeight: scrollRef.current.scrollHeight,
-            clientHeight: scrollRef.current.clientHeight,
-          };
-
-          if (prevViewInfo.scrollTop === 0 && nextViewInfo.scrollTop) {
-            const topOffset = nextViewInfo.scrollHeight - prevViewInfo.scrollHeight;
-            if (topOffset > 0) scrollRef.current.scrollTop = topOffset;
-          }
+            const messagesAreAddedToView = prevViewInfo.scrollHeight < nextViewInfo.scrollHeight;
+            if (messagesAreAddedToView) {
+              const bottomOffset = prevViewInfo.scrollHeight - prevViewInfo.scrollTop;
+              scrollPubSub.publish('scroll', { top: nextViewInfo.scrollHeight - bottomOffset, lazy: false });
+            }
+          });
         });
-      });
+      }
     },
-    onInBetween({ distanceFromBottom }) {
-      setIsScrollBottomReached(false);
-      scrollDistanceFromBottomRef.current = distanceFromBottom;
-    },
-    onReachedBottom({ distanceFromBottom }) {
-      setIsScrollBottomReached(true);
-      scrollDistanceFromBottomRef.current = distanceFromBottom;
+    onReachedBottom() {
+      if (messageCollectionHook.hasNext()) {
+        const prevViewInfo = {
+          scrollTop: scrollRef.current.scrollTop,
+          scrollHeight: scrollRef.current.scrollHeight,
+          clientHeight: scrollRef.current.clientHeight,
+        };
+        console.log('loadNext()', prevViewInfo);
+        messageCollectionHook.loadNext().then(() => {
+          setTimeout(() => {
+            const nextViewInfo = {
+              scrollTop: scrollRef.current.scrollTop,
+              scrollHeight: scrollRef.current.scrollHeight,
+              clientHeight: scrollRef.current.clientHeight,
+            };
+            console.log('loadNext done()', nextViewInfo, prevViewInfo.scrollTop);
 
-      messageCollectionHook.loadNext();
+            const messagesAreAddedToView = prevViewInfo.scrollHeight < nextViewInfo.scrollHeight;
+            if (messagesAreAddedToView) {
+              scrollPubSub.publish('scroll', { top: prevViewInfo.scrollTop, lazy: false });
+            }
+          });
+        });
+      }
+
       if (currentChannel) {
         messageCollectionHook.resetNewMessages();
         if (!disableMarkAsRead) markAsReadScheduler.push(currentChannel);
@@ -288,18 +313,30 @@ const GroupChannelProvider = (props: GroupChannelContextProps) => {
     if (_animatedMessageId) setAnimatedMessageId(_animatedMessageId);
   }, [_animatedMessageId]);
 
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+
+    if (typeof startingPoint === 'number') {
+      messageCollectionHook.resetWithStartingPoint(startingPoint).then(() => {
+        requestAnimationFrame(() => scrollToRenderedMessage(scrollRef, startingPoint));
+      });
+    }
+  }, [startingPoint]);
+
   const scrollToBottom = usePreservedCallback(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+
     setAnimatedMessageId(0);
     setIsScrollBottomReached(true);
 
     if (messageCollectionHook.hasNext()) {
-      messageCollectionHook.resetWithStartingPoint(Number.MAX_SAFE_INTEGER, () => {
-        scrollRef.current.scrollTop = Number.MAX_SAFE_INTEGER;
-        scrollDistanceFromBottomRef.current = 0;
+      messageCollectionHook.resetWithStartingPoint(Number.MAX_SAFE_INTEGER).then(() => {
+        scrollPubSub.publish('scrollToBottom', null);
       });
     } else {
-      scrollRef.current.scrollTop = Number.MAX_SAFE_INTEGER;
-      scrollDistanceFromBottomRef.current = 0;
+      scrollPubSub.publish('scrollToBottom', null);
     }
 
     if (currentChannel) {
@@ -331,14 +368,22 @@ const GroupChannelProvider = (props: GroupChannelContextProps) => {
     setAnimatedMessageId(0);
     const message = messageCollectionHook.messages.find((it) => it.messageId === messageId);
     if (message) {
-      scrollToRenderedMessage(scrollRef, message.createdAt);
-      scrollDistanceFromBottomRef.current = getDistanceFromBottom(scrollRef.current);
+      const topOffset = getMessageTopOffset(message.createdAt);
+      if (topOffset) scrollPubSub.publish('scroll', { top: topOffset });
+
+      // scrollToRenderedMessage(scrollRef, message.createdAt);
+      // scrollDistanceFromBottomRef.current = getDistanceFromBottom(scrollRef.current);
       if (animated) setAnimatedMessageId(messageId);
     } else {
-      messageCollectionHook.resetWithStartingPoint(createdAt, () => {
-        scrollToRenderedMessage(scrollRef, message.createdAt);
-        scrollDistanceFromBottomRef.current = getDistanceFromBottom(scrollRef.current);
-        if (animated) setAnimatedMessageId(messageId);
+      messageCollectionHook.resetWithStartingPoint(createdAt).then(() => {
+        requestAnimationFrame(() => {
+          console.log('scroll to rendered message');
+          const topOffset = getMessageTopOffset(createdAt);
+          if (topOffset) scrollPubSub.publish('scroll', { top: topOffset, lazy: false });
+          // scrollToRenderedMessage(scrollRef, startingPoint);
+          // scrollDistanceFromBottomRef.current = getDistanceFromBottom(scrollRef.current);
+          if (animated) setAnimatedMessageId(messageId);
+        });
       });
     }
 
@@ -417,14 +462,14 @@ const GroupChannelProvider = (props: GroupChannelContextProps) => {
   );
 };
 
-const pass = <T, >(value: T) => value;
+const pass = <T,>(value: T) => value;
 
 function useCustomMessageActions(
   params: GroupChannelContextProps &
     ReturnType<typeof useGroupChannelMessages> & {
       scrollToBottom(): void;
       quoteMessage?: SendableMessageType;
-    },
+    }
 ) {
   const {
     onBeforeSendUserMessage = pass,
@@ -506,18 +551,6 @@ function useCustomMessageActions(
       return updateUserMessage(messageId, processedParams);
     }),
   };
-}
-
-function getDistanceFromBottom(elem: HTMLDivElement) {
-  const { scrollHeight, scrollTop, clientHeight } = elem;
-  return scrollHeight - scrollTop - clientHeight;
-}
-
-function isContextMenuClosed() {
-  return (
-    document.getElementById('sendbird-dropdown-portal')?.childElementCount === 0
-    && document.getElementById('sendbird-emoji-list-portal')?.childElementCount === 0
-  );
 }
 
 export type UseGroupContextChannelType = () => GroupChannelProviderInterface;
