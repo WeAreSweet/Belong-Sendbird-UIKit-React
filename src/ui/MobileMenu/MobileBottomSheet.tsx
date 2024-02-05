@@ -361,7 +361,8 @@ const MobileBottomSheet: React.FunctionComponent<MobileBottomSheetProps> = (prop
                           detail: {
                             channel_type: message.channelType,
                             channel_url: message.channelUrl,
-                            message: message.messageId
+                            message: message.messageId,
+                            member_id: message.sender.userId
                           }
                         }));
 

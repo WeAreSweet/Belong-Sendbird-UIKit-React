@@ -1,5 +1,16 @@
 # sendbird-uikit
 
+# WAS: Instructions to get set up
+`yarn install`
+
+# WAS: To build
+```
+npm run build
+cd dist
+npm version patch
+npm publish --access public
+```
+
 [![Platform React](https://img.shields.io/badge/Platform-React-orange.svg)](https://reactjs.org)
 [![Language TypeScript](https://img.shields.io/badge/Language-TypeScript-orange.svg)](https://www.typescriptlang.org/)
 
