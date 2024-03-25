@@ -150,11 +150,35 @@ export const MemberList = (): ReactElement => {
                           )
                         }
                         <MenuItem
+                            onClick={() => {
+                              window.dispatchEvent(new CustomEvent("sendbird.confirm", {
+                                detail: {
+                                  confirm_type: "remove",
+                                  on_confirmed: () => {
+                                    channel?.removeMember(member);
+                                    closeDropdown();
+                                    setTimeout(refreshList, 150);
+                                  }
+                                }
+                              }));
+                            }}
+                            dataSbId="channel_setting_member_context_menu_remove"
+                        >
+                          Remove
+                        </MenuItem>
+                        <MenuItem
                           onClick={() => {
-                            channel?.banUser(member, -1, '').then(() => {
-                              refreshList();
-                              closeDropdown();
-                            });
+                            window.dispatchEvent(new CustomEvent("sendbird.confirm", {
+                              detail: {
+                                confirm_type: "ban",
+                                on_confirmed: () => {
+                                  channel?.banUser(member, -1, '').then(() => {
+                                    refreshList();
+                                    closeDropdown();
+                                  });
+                                }
+                              }
+                            }));
                           }}
                           dataSbId="channel_setting_member_context_menu_ban"
                         >
