@@ -151,12 +151,14 @@ export const MemberList = (): ReactElement => {
                         }
                         <MenuItem
                             onClick={() => {
+                              closeDropdown();
+
                               window.dispatchEvent(new CustomEvent("sendbird.confirm", {
                                 detail: {
                                   confirm_type: "remove",
+                                  confirmed_message: "userRemoved",
                                   on_confirmed: () => {
                                     channel?.removeMember(member);
-                                    closeDropdown();
                                     setTimeout(refreshList, 150);
                                   }
                                 }
@@ -168,13 +170,15 @@ export const MemberList = (): ReactElement => {
                         </MenuItem>
                         <MenuItem
                           onClick={() => {
+                            closeDropdown();
+
                             window.dispatchEvent(new CustomEvent("sendbird.confirm", {
                               detail: {
                                 confirm_type: "ban",
+                                confirmed_message: "memberBanned",
                                 on_confirmed: () => {
                                   channel?.banUser(member, -1, '').then(() => {
                                     refreshList();
-                                    closeDropdown();
                                   });
                                 }
                               }
