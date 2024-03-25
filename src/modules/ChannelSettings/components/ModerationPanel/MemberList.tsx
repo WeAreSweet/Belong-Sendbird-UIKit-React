@@ -122,7 +122,8 @@ export const MemberList = (): ReactElement => {
                         </MenuItem>
                         {
                           // No muted members in broadcast channel
-                          !channel?.isBroadcast && (
+                          // Also can't mute in a one-to-one
+                          !channel?.isBroadcast && channel?.memberCount > 2 && (
                             <MenuItem
                               onClick={() => {
                                 if (member.isMuted) {
@@ -149,7 +150,7 @@ export const MemberList = (): ReactElement => {
                             </MenuItem>
                           )
                         }
-                        <MenuItem
+                        {channel?.memberCount > 2 && <MenuItem
                             onClick={() => {
                               closeDropdown();
 
@@ -158,7 +159,10 @@ export const MemberList = (): ReactElement => {
                                   confirm_type: "confirmRemove",
                                   confirmed_message: "memberRemoved",
                                   on_confirmed: () => {
-                                    channel?.removeMember(member);
+                                    // weirdly, to remove a user, you just need to ban them for 1 second
+                                    channel?.banUser(member, 1, '').then(() => {
+                                      refreshList();
+                                    });
                                     setTimeout(refreshList, 150);
                                   }
                                 }
@@ -167,8 +171,8 @@ export const MemberList = (): ReactElement => {
                             dataSbId="channel_setting_member_context_menu_remove"
                         >
                           Remove
-                        </MenuItem>
-                        <MenuItem
+                        </MenuItem>}
+                        {channel?.memberCount > 2 && <MenuItem
                           onClick={() => {
                             closeDropdown();
 
@@ -187,7 +191,7 @@ export const MemberList = (): ReactElement => {
                           dataSbId="channel_setting_member_context_menu_ban"
                         >
                           {stringSet.CHANNEL_SETTING__MODERATION__BAN}
-                        </MenuItem>
+                        </MenuItem>}
                       </MenuItems>
                     )}
                   />
