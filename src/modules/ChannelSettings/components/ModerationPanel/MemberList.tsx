@@ -155,8 +155,8 @@ export const MemberList = (): ReactElement => {
 
                               window.dispatchEvent(new CustomEvent("sendbird.confirm", {
                                 detail: {
-                                  confirm_type: "remove",
-                                  confirmed_message: "userRemoved",
+                                  confirm_type: "confirmRemove",
+                                  confirmed_message: "memberRemoved",
                                   on_confirmed: () => {
                                     channel?.removeMember(member);
                                     setTimeout(refreshList, 150);
@@ -174,7 +174,7 @@ export const MemberList = (): ReactElement => {
 
                             window.dispatchEvent(new CustomEvent("sendbird.confirm", {
                               detail: {
-                                confirm_type: "ban",
+                                confirm_type: "confirmBan",
                                 confirmed_message: "memberBanned",
                                 on_confirmed: () => {
                                   channel?.banUser(member, -1, '').then(() => {
