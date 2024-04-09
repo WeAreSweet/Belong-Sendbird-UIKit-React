@@ -451,6 +451,7 @@ const MessageInput = React.forwardRef<HTMLInputElement, MessageInputProps>((prop
           onFocus={() =>{
             console.log('On focus');
             window.dispatchEvent(new CustomEvent("sendbird.messageInput.focus", {}));
+            setHeight();
           }}
           // @ts-ignore
           disabled={disabled}
