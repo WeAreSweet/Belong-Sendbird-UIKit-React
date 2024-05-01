@@ -449,7 +449,6 @@ const MessageInput = React.forwardRef<HTMLInputElement, MessageInputProps>((prop
           aria-label="Text Input"
           ref={externalRef}
           onFocus={() =>{
-            console.log('On focus');
             window.dispatchEvent(new CustomEvent("sendbird.messageInput.focus", {}));
             setHeight();
           }}

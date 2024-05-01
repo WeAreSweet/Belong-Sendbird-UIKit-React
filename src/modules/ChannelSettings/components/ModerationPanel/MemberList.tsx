@@ -24,7 +24,6 @@ export const MemberList = (): ReactElement => {
   const [members, setMembers] = useState<Array<Member>>([]);
   const [hasNext, setHasNext] = useState(false);
   const [showAllMembers, setShowAllMembers] = useState(false);
-  const [showInviteUsers, setShowInviteUsers] = useState(false);
 
   const state = useSendbirdStateContext();
   const {
@@ -218,7 +217,13 @@ export const MemberList = (): ReactElement => {
         <Button
           type={ButtonTypes.SECONDARY}
           size={ButtonSizes.SMALL}
-          onClick={() => setShowInviteUsers(true)}
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent("sendbird.addMemberToChannel", {
+              detail: {
+                channel_url: channel?.url
+              }
+            }));
+          }}
         >
           {stringSet.CHANNEL_SETTING__MEMBERS__INVITE_MEMBER}
         </Button>
@@ -230,17 +235,6 @@ export const MemberList = (): ReactElement => {
               setShowAllMembers(false);
               refreshList();
             }}
-          />
-        )
-      }
-      {
-        showInviteUsers && (
-          <InviteUsers
-            onSubmit={() => {
-              setShowInviteUsers(false);
-              refreshList();
-            }}
-            onCancel={() => setShowInviteUsers(false)}
           />
         )
       }
